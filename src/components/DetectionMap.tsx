@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,16 +7,12 @@ import { MapPin, Layers, RotateCcw } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// Fix for default markers in react-leaflet
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-
+// Fix for default markers in react-leaflet - simplified approach
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
 interface MapDetection {
@@ -34,35 +30,6 @@ interface DetectionMapProps {
   userLocation?: { lat: number; lon: number };
 }
 
-// Create simple colored markers instead of complex divIcon
-const createCustomIcon = (type: string, context: string) => {
-  const color = type === 'tent' ? '#f97316' : type === 'blanket' ? '#3b82f6' : '#eab308';
-  
-  return new L.Icon({
-    iconUrl: markerIcon,
-    iconRetinaUrl: markerIcon2x,
-    shadowUrl: markerShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
-    className: `marker-${type}`
-  });
-};
-
-// Component to handle map view updates
-const MapViewUpdater = ({ userLocation }: { userLocation?: { lat: number; lon: number } }) => {
-  const map = useMap();
-  
-  useEffect(() => {
-    if (userLocation && map) {
-      map.setView([userLocation.lat, userLocation.lon], 13);
-    }
-  }, [userLocation, map]);
-
-  return null;
-};
-
 const DetectionMap = ({ detections, userLocation }: DetectionMapProps) => {
   const [viewMode, setViewMode] = useState<'markers' | 'heatmap'>('markers');
   
@@ -70,7 +37,6 @@ const DetectionMap = ({ detections, userLocation }: DetectionMapProps) => {
   const currentLocation = userLocation || { lat: 40.7128, lon: -74.0060 }; // NYC
 
   const handleResetView = () => {
-    // This would reset the map view to current location
     console.log('Reset view to current location');
   };
 
@@ -140,13 +106,10 @@ const DetectionMap = ({ detections, userLocation }: DetectionMapProps) => {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             
-            <MapViewUpdater userLocation={userLocation} />
-            
             {detections.map((detection) => (
               <Marker
                 key={detection.id}
                 position={[detection.lat, detection.lon]}
-                icon={createCustomIcon(detection.type, detection.context)}
               >
                 <Popup>
                   <div className="p-2">
@@ -164,12 +127,6 @@ const DetectionMap = ({ detections, userLocation }: DetectionMapProps) => {
                 </Popup>
               </Marker>
             ))}
-            
-            {userLocation && (
-              <Marker position={[userLocation.lat, userLocation.lon]}>
-                <Popup>Your Location</Popup>
-              </Marker>
-            )}
           </MapContainer>
         </div>
       </CardContent>
