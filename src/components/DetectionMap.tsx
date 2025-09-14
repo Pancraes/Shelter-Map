@@ -95,39 +95,30 @@ const DetectionMap = ({ detections, userLocation }: DetectionMapProps) => {
       </CardHeader>
       
       <CardContent className="flex-1 p-0">
-        <div className="h-full min-h-[400px] relative">
-          <MapContainer
-            center={[currentLocation.lat, currentLocation.lon]}
-            zoom={13}
-            style={{ height: '100%', width: '100%' }}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            
-            {detections.map((detection) => (
-              <Marker
-                key={detection.id}
-                position={[detection.lat, detection.lon]}
-              >
-                <Popup>
-                  <div className="p-2">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Badge variant="outline">{detection.type}</Badge>
-                      <Badge variant="secondary">{detection.context}</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Confidence: {Math.round(detection.confidence * 100)}%
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(detection.timestamp).toLocaleString()}
-                    </p>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
+        <div className="h-full min-h-[400px] relative bg-muted/10 border-2 border-dashed border-muted-foreground/20 flex items-center justify-center">
+          <div className="text-center space-y-2">
+            <MapPin className="h-8 w-8 text-muted-foreground mx-auto" />
+            <p className="text-muted-foreground">Map temporarily disabled</p>
+            <p className="text-sm text-muted-foreground">
+              Showing {detections.length} detections
+            </p>
+            <div className="space-y-1 mt-4">
+              {detections.slice(0, 5).map((detection) => (
+                <div key={detection.id} className="text-xs bg-background/50 p-2 rounded">
+                  <Badge variant="outline" className="mr-2">{detection.type}</Badge>
+                  <Badge variant="secondary" className="mr-2">{detection.context}</Badge>
+                  <span className="text-muted-foreground">
+                    {Math.round(detection.confidence * 100)}%
+                  </span>
+                </div>
+              ))}
+              {detections.length > 5 && (
+                <p className="text-xs text-muted-foreground">
+                  +{detections.length - 5} more detections
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>
