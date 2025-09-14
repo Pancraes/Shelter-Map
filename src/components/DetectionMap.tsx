@@ -152,6 +152,7 @@ const DetectionMap = ({ detections, userLocation }: DetectionMapProps) => {
             
             <MapController userLocation={userLocation} />
             
+            {/* Detection markers */}
             {detections.map((detection) => (
               <Marker
                 key={detection.id}
@@ -175,11 +176,12 @@ const DetectionMap = ({ detections, userLocation }: DetectionMapProps) => {
               </Marker>
             ))}
             
-            {userLocation && (
+            {/* User location marker */}
+            {userLocation ? (
               <Marker position={[userLocation.lat, userLocation.lon]}>
                 <Popup>Your Location</Popup>
               </Marker>
-            )}
+            ) : null}
           </MapContainer>
         </div>
       </CardContent>
