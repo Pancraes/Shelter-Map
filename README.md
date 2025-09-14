@@ -1,3 +1,6 @@
+<img width="1882" height="837" alt="image" src="https://github.com/user-attachments/assets/7a3fc847-4c47-467e-9c44-433d370963e7" />
+
+
 ## Inspiration
 Cities and nonprofits spend millions on manual street counts and surveys to estimate homelessness, often producing outdated data. We wanted to explore how computer vision and geospatial technology could provide real-time, anonymized insights while respecting dignity and privacy.
 
