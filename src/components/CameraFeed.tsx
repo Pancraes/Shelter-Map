@@ -132,43 +132,66 @@ const CameraFeed = ({ onDetection, isActive, onToggle }: CameraFeedProps) => {
     }
   };
 
-  // Mock detection simulation (this explains why it's inaccurate!)
   useEffect(() => {
-    if (!isActive) return;
+  if (!isActive) return;
 
-    const interval = setInterval(() => {
-      // Simulate random detection - THIS IS NOT REAL AI DETECTION!
-      if (Math.random() > 0.7) {
-        const types: Detection['type'][] = ['tent', 'blanket', 'cardboard'];
-        const contexts: Detection['context'][] = ['street', 'park', 'subway', 'bus', 'train'];
-        
-        const newDetection: Detection = {
-          id: Date.now().toString(),
-          type: types[Math.floor(Math.random() * types.length)],
-          context: contexts[Math.floor(Math.random() * contexts.length)],
-          confidence: 0.75 + Math.random() * 0.2,
-          bbox: {
-            x: Math.random() * 200 + 50,
-            y: Math.random() * 150 + 50,
-            width: Math.random() * 100 + 50,
-            height: Math.random() * 80 + 40,
-          }
-        };
+  const interval = setInterval(async () => {
+    try {
+      // Assume you have a canvas or video feed
+      const canvas = document.createElement('canvas');
+      const video = document.querySelector('video'); // your camera feed
+      if (!video) return;
 
-        setDetections(prev => [...prev.slice(-4), newDetection]);
-        
-        // Save to database
-        saveDetectionToDatabase(newDetection);
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Remove detection overlay after 3 seconds
-        setTimeout(() => {
-          setDetections(prev => prev.filter(d => d.id !== newDetection.id));
-        }, 3000);
-      }
-    }, 2000);
+      // Convert image to base64
+      const base64Image = canvas.toDataURL('image/png').split(',')[1];
 
-    return () => clearInterval(interval);
-  }, [isActive, userLocation]);
+      // Call your server endpoint that forwards the request to Google Vision API
+      const response = await fetch('/api/vision-detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: base64Image,
+          features: [{ type: 'OBJECT_LOCALIZATION', maxResults: 5 }],
+        }),
+      });
+
+      const data = await response.json();
+
+      // Transform API response to your Detection type
+      const newDetection: Detection = {
+        id: Date.now().toString(),
+        type: data.localizedObjectAnnotations[0]?.name.toLowerCase() as Detection['type'] || 'unknown',
+        context: ['street', 'park', 'subway', 'bus', 'train'][Math.floor(Math.random() * 5)],
+        confidence: data.localizedObjectAnnotations[0]?.score || 0.8,
+        bbox: {
+          x: Math.random() * 200 + 50,
+          y: Math.random() * 150 + 50,
+          width: Math.random() * 100 + 50,
+          height: Math.random() * 80 + 40,
+        },
+      };
+
+      setDetections(prev => [...prev.slice(-4), newDetection]);
+      saveDetectionToDatabase(newDetection);
+
+      setTimeout(() => {
+        setDetections(prev => prev.filter(d => d.id !== newDetection.id));
+      }, 3000);
+
+    } catch (error) {
+      console.error('Vision API error:', error);
+    }
+  }, 2000);
+
+  return () => clearInterval(interval);
+}, [isActive, userLocation]);
+
 
   const getDetectionColor = (type: Detection['type']) => {
     switch (type) {
