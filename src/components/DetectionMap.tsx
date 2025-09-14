@@ -59,11 +59,12 @@ const createCustomIcon = (type: string, context: string) => {
   });
 };
 
-const MapController = ({ userLocation }: { userLocation?: { lat: number; lon: number } }) => {
+// Component to handle map view updates
+const MapViewUpdater = ({ userLocation }: { userLocation?: { lat: number; lon: number } }) => {
   const map = useMap();
   
   useEffect(() => {
-    if (userLocation) {
+    if (userLocation && map) {
       map.setView([userLocation.lat, userLocation.lon], 13);
     }
   }, [userLocation, map]);
@@ -72,7 +73,6 @@ const MapController = ({ userLocation }: { userLocation?: { lat: number; lon: nu
 };
 
 const DetectionMap = ({ detections, userLocation }: DetectionMapProps) => {
-  const [mapReady, setMapReady] = useState(false);
   const [viewMode, setViewMode] = useState<'markers' | 'heatmap'>('markers');
   
   // Mock current location if not provided
@@ -143,16 +143,14 @@ const DetectionMap = ({ detections, userLocation }: DetectionMapProps) => {
             center={[currentLocation.lat, currentLocation.lon]}
             zoom={13}
             style={{ height: '100%', width: '100%' }}
-            whenReady={() => setMapReady(true)}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             
-            <MapController userLocation={userLocation} />
+            <MapViewUpdater userLocation={userLocation} />
             
-            {/* Detection markers */}
             {detections.map((detection) => (
               <Marker
                 key={detection.id}
@@ -176,12 +174,11 @@ const DetectionMap = ({ detections, userLocation }: DetectionMapProps) => {
               </Marker>
             ))}
             
-            {/* User location marker */}
-            {userLocation ? (
+            {userLocation && (
               <Marker position={[userLocation.lat, userLocation.lon]}>
                 <Popup>Your Location</Popup>
               </Marker>
-            ) : null}
+            )}
           </MapContainer>
         </div>
       </CardContent>
