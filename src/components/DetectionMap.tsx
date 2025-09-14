@@ -1,48 +1,90 @@
 import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Layers, RotateCcw } from 'lucide-react';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-
-// Fix for default markers in react-leaflet - simplified approach
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+import { supabase } from '@/integrations/supabase/client';
 
 interface MapDetection {
   id: string;
   lat: number;
   lon: number;
-  type: 'tent' | 'blanket' | 'cardboard';
+  object_type: 'tent' | 'blanket' | 'cardboard';
   context: 'street' | 'park' | 'subway' | 'bus' | 'train' | 'unknown';
   confidence: number;
   timestamp: string;
 }
 
 interface DetectionMapProps {
-  detections: MapDetection[];
   userLocation?: { lat: number; lon: number };
 }
 
-const DetectionMap = ({ detections, userLocation }: DetectionMapProps) => {
+const DetectionMap = ({ userLocation }: DetectionMapProps) => {
+  const [detections, setDetections] = useState<MapDetection[]>([]);
   const [viewMode, setViewMode] = useState<'markers' | 'heatmap'>('markers');
   
   // Mock current location if not provided
   const currentLocation = userLocation || { lat: 40.7128, lon: -74.0060 }; // NYC
 
+  // Load detections from Supabase
+  useEffect(() => {
+    loadDetections();
+    
+    // Set up real-time subscription for new detections
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'detections'
+        },
+        (payload) => {
+          console.log('New detection received:', payload);
+          const newDetection = payload.new as MapDetection;
+          setDetections(prev => [...prev, newDetection]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const loadDetections = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('detections')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('Error loading detections:', error);
+      } else {
+        // Type cast the data to ensure proper typing
+        const typedDetections = (data || []).map(item => ({
+          ...item,
+          object_type: item.object_type as 'tent' | 'blanket' | 'cardboard',
+          context: item.context as 'street' | 'park' | 'subway' | 'bus' | 'train' | 'unknown'
+        }));
+        setDetections(typedDetections);
+      }
+    } catch (error) {
+      console.error('Error loading detections:', error);
+    }
+  };
+
   const handleResetView = () => {
     console.log('Reset view to current location');
+    loadDetections(); // Also refresh data
   };
 
   const getDetectionStats = () => {
     const stats = detections.reduce((acc, detection) => {
-      acc[detection.type] = (acc[detection.type] || 0) + 1;
+      acc[detection.object_type] = (acc[detection.object_type] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
     
@@ -95,26 +137,38 @@ const DetectionMap = ({ detections, userLocation }: DetectionMapProps) => {
       </CardHeader>
       
       <CardContent className="flex-1 p-0">
-        <div className="h-full min-h-[400px] relative bg-muted/10 border-2 border-dashed border-muted-foreground/20 flex items-center justify-center">
-          <div className="text-center space-y-2">
-            <MapPin className="h-8 w-8 text-muted-foreground mx-auto" />
-            <p className="text-muted-foreground">Map temporarily disabled</p>
-            <p className="text-sm text-muted-foreground">
-              Showing {detections.length} detections
-            </p>
-            <div className="space-y-1 mt-4">
-              {detections.slice(0, 5).map((detection) => (
-                <div key={detection.id} className="text-xs bg-background/50 p-2 rounded">
-                  <Badge variant="outline" className="mr-2">{detection.type}</Badge>
-                  <Badge variant="secondary" className="mr-2">{detection.context}</Badge>
-                  <span className="text-muted-foreground">
-                    {Math.round(detection.confidence * 100)}%
-                  </span>
-                </div>
-              ))}
-              {detections.length > 5 && (
+        <div className="h-full min-h-[400px] relative bg-muted/10 border-2 border-dashed border-muted-foreground/20 flex flex-col items-center justify-center">
+          <div className="text-center space-y-4 max-w-md">
+            <MapPin className="h-12 w-12 text-primary mx-auto" />
+            <div>
+              <h3 className="text-lg font-semibold">Real-time Detection Map</h3>
+              <p className="text-muted-foreground">Map displays live detections from the camera</p>
+            </div>
+            <div className="bg-background/80 p-4 rounded-lg space-y-3">
+              <p className="text-sm font-medium">
+                Showing {detections.length} total detections
+              </p>
+              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                {detections.slice(0, 8).map((detection) => (
+                  <div key={detection.id} className="text-xs bg-muted/50 p-2 rounded flex items-center justify-between">
+                    <div>
+                      <Badge variant="outline" className="text-xs mr-1">{detection.object_type}</Badge>
+                      <Badge variant="secondary" className="text-xs">{detection.context}</Badge>
+                    </div>
+                    <span className="text-muted-foreground">
+                      {Math.round(detection.confidence * 100)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {detections.length > 8 && (
                 <p className="text-xs text-muted-foreground">
-                  +{detections.length - 5} more detections
+                  +{detections.length - 8} more detections
+                </p>
+              )}
+              {detections.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Start the camera to begin detecting objects
                 </p>
               )}
             </div>

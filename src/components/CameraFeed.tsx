@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Camera, CameraOff, MapPin, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Detection {
   id: string;
@@ -16,10 +17,13 @@ interface Detection {
     width: number;
     height: number;
   };
+  lat?: number;
+  lon?: number;
+  timestamp?: string;
 }
 
 interface CameraFeedProps {
-  onDetection?: (detection: Detection) => void;
+  onDetection?: (detection: Detection & { lat: number; lon: number; timestamp: string }) => void;
   isActive: boolean;
   onToggle: () => void;
 }
@@ -30,10 +34,12 @@ const CameraFeed = ({ onDetection, isActive, onToggle }: CameraFeedProps) => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [detections, setDetections] = useState<Detection[]>([]);
   const [error, setError] = useState<string>('');
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
 
   useEffect(() => {
     if (isActive) {
       startCamera();
+      getCurrentLocation();
     } else {
       stopCamera();
     }
@@ -67,12 +73,71 @@ const CameraFeed = ({ onDetection, isActive, onToggle }: CameraFeedProps) => {
     }
   };
 
-  // Mock detection simulation
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lon: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          // Use a default location (NYC) if geolocation fails
+          setUserLocation({ lat: 40.7128, lon: -74.0060 });
+        }
+      );
+    } else {
+      setUserLocation({ lat: 40.7128, lon: -74.0060 });
+    }
+  };
+
+  const saveDetectionToDatabase = async (detection: Detection) => {
+    if (!userLocation) return;
+
+    const detectionData = {
+      lat: userLocation.lat,
+      lon: userLocation.lon,
+      object_type: detection.type,
+      context: detection.context,
+      confidence: detection.confidence,
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      const { error } = await supabase
+        .from('detections')
+        .insert(detectionData);
+
+      if (error) {
+        console.error('Error saving detection:', error);
+      } else {
+        console.info('New detection:', {
+          ...detectionData,
+          id: detection.id,
+          bbox: detection.bbox
+        });
+        
+        // Call the parent callback with full detection data
+        onDetection?.({
+          ...detection,
+          lat: userLocation.lat,
+          lon: userLocation.lon,
+          timestamp: detectionData.timestamp
+        });
+      }
+    } catch (error) {
+      console.error('Error saving to database:', error);
+    }
+  };
+
+  // Mock detection simulation (this explains why it's inaccurate!)
   useEffect(() => {
     if (!isActive) return;
 
     const interval = setInterval(() => {
-      // Simulate random detection
+      // Simulate random detection - THIS IS NOT REAL AI DETECTION!
       if (Math.random() > 0.7) {
         const types: Detection['type'][] = ['tent', 'blanket', 'cardboard'];
         const contexts: Detection['context'][] = ['street', 'park', 'subway', 'bus', 'train'];
@@ -91,9 +156,11 @@ const CameraFeed = ({ onDetection, isActive, onToggle }: CameraFeedProps) => {
         };
 
         setDetections(prev => [...prev.slice(-4), newDetection]);
-        onDetection?.(newDetection);
+        
+        // Save to database
+        saveDetectionToDatabase(newDetection);
 
-        // Remove detection after 3 seconds
+        // Remove detection overlay after 3 seconds
         setTimeout(() => {
           setDetections(prev => prev.filter(d => d.id !== newDetection.id));
         }, 3000);
@@ -101,7 +168,7 @@ const CameraFeed = ({ onDetection, isActive, onToggle }: CameraFeedProps) => {
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [isActive, onDetection]);
+  }, [isActive, userLocation]);
 
   const getDetectionColor = (type: Detection['type']) => {
     switch (type) {

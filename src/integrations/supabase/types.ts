@@ -14,7 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      detections: {
+        Row: {
+          confidence: number
+          context: string
+          created_at: string
+          id: string
+          lat: number
+          lon: number
+          object_type: string
+          timestamp: string
+        }
+        Insert: {
+          confidence: number
+          context: string
+          created_at?: string
+          id?: string
+          lat: number
+          lon: number
+          object_type: string
+          timestamp?: string
+        }
+        Update: {
+          confidence?: number
+          context?: string
+          created_at?: string
+          id?: string
+          lat?: number
+          lon?: number
+          object_type?: string
+          timestamp?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -180,7 +180,6 @@ const Index = () => {
 
           <TabsContent value="map" className="space-y-6">
             <DetectionMap
-              detections={detections}
               userLocation={userLocation || undefined}
             />
           </TabsContent>
