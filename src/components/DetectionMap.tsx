@@ -8,11 +8,15 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
 // Fix for default markers in react-leaflet
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
 });
 
 interface MapDetection {
@@ -30,32 +34,19 @@ interface DetectionMapProps {
   userLocation?: { lat: number; lon: number };
 }
 
-// Custom icon creation for different detection types
+// Create simple colored markers instead of complex divIcon
 const createCustomIcon = (type: string, context: string) => {
   const color = type === 'tent' ? '#f97316' : type === 'blanket' ? '#3b82f6' : '#eab308';
   
-  return L.divIcon({
-    html: `
-      <div style="
-        background-color: ${color};
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        border: 2px solid white;
-        box-shadow: 0 0 10px rgba(0,0,0,0.3);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 10px;
-        color: white;
-        font-weight: bold;
-      ">
-        ${type[0].toUpperCase()}
-      </div>
-    `,
-    className: 'custom-marker',
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
+  return new L.Icon({
+    iconUrl: markerIcon,
+    iconRetinaUrl: markerIcon2x,
+    shadowUrl: markerShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+    className: `marker-${type}`
   });
 };
 
